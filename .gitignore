@@ -1,0 +1,53 @@
+tmp/*
+test-*/*
+temp.sh
+.vscode/*
+
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.venv/
+venv/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+
+# Node / Next
+node_modules/
+.next/
+dist/
+build/
+
+# Env
+.env
+.env.local
+.env.*.local
+!.env.template
+
+# DB
+*.db
+*.sqlite
+*.sqlite3
+backend/dev.db
+
+# Logs
+logs/
+*.log
+
+# Generated
+frontend/src/lib/types.ts
+
+# Terraform
+infra/.terraform/
+infra/*.tfstate
+infra/*.tfstate.*
+infra/.terraform.lock.hcl
+infra/tfplan*
+infra/spaceship-deploy.pem
+deploy/.env
+
+# OS
+.DS_Store
+.idea/

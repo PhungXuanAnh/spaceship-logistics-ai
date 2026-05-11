@@ -1,0 +1,63 @@
+# Dev-only overrides. Auto-merged by `docker compose` when both files exist.
+# Activates hot-reload by bind-mounting source onto the image's WORKDIR.
+#
+# Disable with: `docker compose -f docker-compose.yml up -d`
+# (skips this file, runs the prod-shaped image only).
+
+services:
+  backend:
+    # Bind-mount source over the COPY'd code; uvicorn --reload (already in Dockerfile CMD) picks up edits.
+    # /app/.venv-not-needed — pip install -e was already done at build, so /app/*.egg-info etc. are
+    # present in the image; we mount AFTER that so the editable install still resolves.
+    volumes:
+      - ./backend:/app
+      - sqlite_data:/data
+      - ./data:/seed:ro
+    # Reach the host's local Copilot proxy (Claude) and Gemini direct: needs host.docker.internal.
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    # Provider config: defaults to self-hosted Claude via local Copilot proxy on host port 8080,
+    # falls back to keyword (KeywordRouter is always-on terminal in the cascade anyway).
+    # Override at the shell with `LLM_PROVIDER=... docker compose up -d` to swap.
+    environment:
+      DATABASE_URL: sqlite:////data/dev.db
+      JWT_SECRET: dev-secret-change-me-please-32-chars
+      DEMO_USER_EMAIL: demo@spaceship.test
+      DEMO_USER_PASSWORD: demo123
+      CORS_ORIGINS: http://localhost:3000,http://127.0.0.1:3000
+      LOG_LEVEL: INFO
+      LLM_PROVIDER: ${LLM_PROVIDER:-claude}
+      LLM_MODEL: ${LLM_MODEL:-claude-sonnet-4.6}
+      LLM_API_KEY: ${LLM_API_KEY:-local}
+      LLM_BASE_URL: ${LLM_BASE_URL:-http://host.docker.internal:18080}
+      # Cascade per narrative §plan: claude (Copilot proxy) -> gemini -> keyword (terminal).
+      FALLBACK_PROVIDER: ${FALLBACK_PROVIDER:-gemini}
+      FALLBACK_MODEL: ${FALLBACK_MODEL:-gemini-2.5-flash}
+      FALLBACK_API_KEY: ${FALLBACK_API_KEY:-}
+      FALLBACK_BASE_URL: ${FALLBACK_BASE_URL:-https://generativelanguage.googleapis.com}
+      FALLBACK2_PROVIDER: ${FALLBACK2_PROVIDER:-keyword}
+      FALLBACK2_MODEL: ${FALLBACK2_MODEL:-}
+      FALLBACK2_API_KEY: ${FALLBACK2_API_KEY:-}
+      FALLBACK2_BASE_URL: ${FALLBACK2_BASE_URL:-}
+    command: >
+      bash -lc "if [ ! -f /data/.seeded ]; then
+                  python -m app.data.importer /seed/mock_logistics_data.csv && touch /data/.seeded;
+                fi &&
+                exec uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload --reload-dir /app/app"
+
+  frontend:
+    # Use the `deps` stage (has node_modules) instead of the standalone runner — dev needs source + dev deps.
+    build:
+      context: ./frontend
+      target: deps
+    environment:
+      NODE_ENV: development
+      NEXT_PUBLIC_API_URL: http://localhost:8000
+      WATCHPACK_POLLING: "true"  # fsnotify is flaky on bind-mounts; enable polling
+      CHOKIDAR_USEPOLLING: "true"
+    # Mount source on top of /app, preserve container's node_modules (the host's may target a different OS/arch).
+    volumes:
+      - ./frontend:/app
+      - /app/node_modules
+      - /app/.next
+    command: ["npm", "run", "dev", "--", "--hostname", "0.0.0.0", "--port", "3000"]

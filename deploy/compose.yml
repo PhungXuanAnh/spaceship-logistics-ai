@@ -1,0 +1,56 @@
+# docker compose for the EC2 box.
+# Caddy fronts everything; backend serves /api/*, /healthz, /readyz; frontend serves the rest.
+services:
+  caddy:
+    image: caddy:2-alpine
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      - "443:443"
+    environment:
+      DOMAIN: "${DOMAIN}"
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - /var/spaceship/caddy_data:/data
+      - /var/spaceship/caddy_config:/config
+    depends_on:
+      - backend
+      - frontend
+
+  backend:
+    image: spaceship-backend:latest
+    restart: unless-stopped
+    expose: ["8000"]
+    ports:
+      - "8000:8000"
+    environment:
+      DATABASE_URL: "sqlite:////data/dev.db"
+      JWT_SECRET: "${JWT_SECRET}"
+      DEMO_USER_EMAIL: "${DEMO_EMAIL}"
+      DEMO_USER_PASSWORD: "${DEMO_PASSWORD}"
+      LLM_PROVIDER: "${LLM_PROVIDER:-keyword}"
+      LLM_MODEL: "${LLM_MODEL:-}"
+      LLM_API_KEY: "${LLM_API_KEY:-}"
+      FALLBACK_PROVIDER: "${FALLBACK_PROVIDER:-keyword}"
+      FALLBACK_MODEL: "${FALLBACK_MODEL:-}"
+      FALLBACK_API_KEY: "${FALLBACK_API_KEY:-}"
+      CORS_ORIGINS: "https://${DOMAIN}"
+    volumes:
+      - /var/spaceship/data:/data
+    command: >
+      sh -c "
+        if [ ! -f /data/.seeded ]; then
+          python -m app.data.importer /app/data/mock_logistics_data.csv && touch /data/.seeded;
+        fi;
+        exec uvicorn app.main:app --host 0.0.0.0 --port 8000 --proxy-headers --forwarded-allow-ips='*'
+      "
+
+  frontend:
+    image: spaceship-frontend:latest
+    restart: unless-stopped
+    expose: ["3000"]
+    ports:
+      - "3000:3000"
+    environment:
+      NEXT_PUBLIC_API_URL: "https://${DOMAIN}"
+      NODE_ENV: production

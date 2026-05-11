@@ -1,0 +1,48 @@
+services:
+  backend:
+    build:
+      context: ./backend
+    environment:
+      DATABASE_URL: sqlite:////data/dev.db
+      JWT_SECRET: dev-secret-change-me-please-32-chars
+      DEMO_USER_EMAIL: demo@spaceship.test
+      DEMO_USER_PASSWORD: demo123
+      LLM_PROVIDER: keyword
+      FALLBACK_PROVIDER: keyword
+      CORS_ORIGINS: http://localhost:3000,http://127.0.0.1:3000
+      LOG_LEVEL: INFO
+    ports:
+      - "8000:8000"
+    volumes:
+      - sqlite_data:/data
+      - ./data:/seed:ro
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request,sys; sys.exit(0) if urllib.request.urlopen('http://localhost:8000/healthz', timeout=2).status==200 else sys.exit(1)"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+      start_period: 10s
+    # Seed the SQLite DB once (idempotent: marker file at /data/.seeded), then run uvicorn.
+    command: >
+      bash -lc "if [ ! -f /data/.seeded ]; then
+                  python -m app.data.importer /seed/mock_logistics_data.csv && touch /data/.seeded;
+                fi &&
+                exec uvicorn app.main:app --host 0.0.0.0 --port 8000"
+
+  frontend:
+    build:
+      context: ./frontend
+      args:
+        NEXT_PUBLIC_API_URL: http://localhost:8000
+    environment:
+      NEXT_PUBLIC_API_URL: http://localhost:8000
+      NODE_ENV: production
+    ports:
+      - "3000:3000"
+    depends_on:
+      backend:
+        condition: service_healthy
+
+volumes:
+  sqlite_data:
+
