@@ -168,9 +168,12 @@ async def ask_v2(
         tool = SchemaInspectorTool(repo)
         result = tool.invoke(column=column)
         data = [{"value": v} for v in result["values"]]
+        values = result["values"]
+        shown = values[:10]
+        suffix = f" (showing 10 of {len(values)})" if len(values) > 10 else ""
         answer = (
-            f"I can't validate the value you mentioned. Available {_pluralize(result['column'])}: "
-            f"{', '.join(result['values'][:10])}..."
+            f"Available {_pluralize(result['column'])} in this dataset: "
+            f"{', '.join(shown)}.{suffix}"
         )
         row_count = len(data)
 

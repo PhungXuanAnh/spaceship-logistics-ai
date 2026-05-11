@@ -39,6 +39,11 @@ markers = [
     "provider_smoke: hits real LLM providers (opt-in)",
     "eval: NL→tool routing eval suite",
 ]
+filterwarnings = [
+    # Upstream: passlib still imports the stdlib `crypt` module on Python 3.11.
+    # Not actionable from our code; tracked at https://foss.heptapod.net/python-libs/passlib/-/issues/187
+    "ignore:'crypt' is deprecated.*:DeprecationWarning:passlib",
+]
 
 [tool.setuptools.packages.find]
 include = ["app*"]

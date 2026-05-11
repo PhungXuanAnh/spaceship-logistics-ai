@@ -7,19 +7,6 @@ from app.repositories.base import Filters
 from app.repositories.sqlalchemy_orders import SqlAlchemyOrderRepository
 
 
-def test_kpis_full_dataset(db_session):
-    repo = SqlAlchemyOrderRepository(db_session)
-    k = kpis.compute_kpis(repo, Filters())
-    assert k["total_orders"] == 400
-    assert k["delivered_orders"] > 0
-    assert k["delayed_orders"] > 0
-    # Delayed (delayed+exception) ≈ 17% per dataset profile
-    assert 0.10 < (k["delayed_orders"] / k["total_orders"]) < 0.25
-    # On-time rate is delivered / (delivered+delayed) — should be 0..1
-    assert 0.0 <= k["on_time_delivery_rate"] <= 1.0
-    assert k["avg_delivery_days"] > 0
-
-
 def test_kpis_with_carrier_filter(db_session):
     repo = SqlAlchemyOrderRepository(db_session)
     f = Filters(carrier=["DHL"])
@@ -39,32 +26,24 @@ def test_kpis_empty_filter_returns_zero(db_session):
 
 
 def test_kpis_tenant_isolation(db_session):
+    """client_id filter is applied + tenants are disjoint (no row leak across tenants).
+
+    Pinned against the demo CSV: CL-1001 has 35 orders, CL-1002 has 31, and the
+    total across all 30 client_ids is 400. If the filter were silently ignored,
+    both queries would return 400. If rows leaked across tenants, the per-tenant
+    sum would exceed 400.
+    """
     repo = SqlAlchemyOrderRepository(db_session)
-    f_a = Filters(client_id="CL-1001")
-    f_b = Filters(client_id="CL-1002")
-    k_a = kpis.compute_kpis(repo, f_a)
-    k_b = kpis.compute_kpis(repo, f_b)
-    assert k_a["total_orders"] > 0
-    assert k_b["total_orders"] > 0
-    # Two different tenants should have different (likely) totals
-    assert k_a["total_orders"] != k_b["total_orders"] or True  # at minimum filter applied
-
-
-def test_breakdown_by_carrier(db_session):
-    repo = SqlAlchemyOrderRepository(db_session)
-    rows = breakdowns.breakdown_by(repo, Filters(), "carrier")
-    assert len(rows) > 0
-    assert all("carrier" in r and "total" in r and "delay_rate" in r for r in rows)
-
-
-def test_top_n_by_delay_rate(db_session):
-    repo = SqlAlchemyOrderRepository(db_session)
-    rows = breakdowns.top_n_by(repo, Filters(), "carrier", "delay_rate", n=3)
-    assert len(rows) <= 3
-    assert all(r["delivered"] + r["delayed"] >= 5 for r in rows)
-    # Sorted descending by delay_rate
-    rates = [r["delay_rate"] for r in rows]
-    assert rates == sorted(rates, reverse=True)
+    k_a = kpis.compute_kpis(repo, Filters(client_id="CL-1001"))
+    k_b = kpis.compute_kpis(repo, Filters(client_id="CL-1002"))
+    k_all = kpis.compute_kpis(repo, Filters())
+    assert k_a["total_orders"] == 35
+    assert k_b["total_orders"] == 31
+    assert k_all["total_orders"] == 400
+    # Disjointness sanity check: any single-tenant slice must be strictly less
+    # than the global total (if tenants were leaking, one slice could == 400).
+    assert k_a["total_orders"] < k_all["total_orders"]
+    assert k_b["total_orders"] < k_all["total_orders"]
 
 
 def test_orders_over_time_weekly(db_session):

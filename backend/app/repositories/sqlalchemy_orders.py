@@ -48,7 +48,10 @@ class SqlAlchemyOrderRepository(OrderRepository):
         return conds
 
     def fetch_orders(self, filters: Filters) -> list[dict[str, Any]]:
-        stmt = select(Order).where(and_(*self._build_where(filters)))
+        conds = self._build_where(filters)
+        stmt = select(Order)
+        if conds:
+            stmt = stmt.where(and_(*conds))
         rows = self._session.execute(stmt).scalars().all()
         return [
             {

@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import logging
+from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
@@ -15,10 +16,19 @@ logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(name
 
 settings = get_settings()
 
+
+@asynccontextmanager
+async def lifespan(_app: FastAPI):
+    # Auto-create tables on startup (Alembic-free path for SQLite/dev convenience)
+    Base.metadata.create_all(bind=engine)
+    yield
+
+
 app = FastAPI(
     title="Spaceship Logistics Analytics API",
     version="0.1.0",
     description="AI-powered logistics analytics dashboard backend.",
+    lifespan=lifespan,
 )
 
 app.add_middleware(
@@ -28,12 +38,6 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
-
-# Auto-create tables on startup (Alembic-free path for SQLite/dev convenience)
-@app.on_event("startup")
-def _create_tables() -> None:
-    Base.metadata.create_all(bind=engine)
-
 
 app.include_router(routes_health.router)
 app.include_router(routes_auth.router)

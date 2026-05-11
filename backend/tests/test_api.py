@@ -51,7 +51,14 @@ def test_kpis_endpoint_authed(db_session):
     assert j["total_orders"] == 400
 
 
-def test_ask_endpoint_keyword_router(db_session):
+def test_ask_endpoint_keyword_router(db_session, monkeypatch):
+    # Force keyword-only routing regardless of LLM_PROVIDER env (container sets gemini).
+    from app.ai.router import RouterChain
+
+    monkeypatch.setattr(
+        "app.api.routes_ask.build_router_chain",
+        lambda settings=None: RouterChain(primary=None),
+    )
     c = _client()
     token = _login_token(c)
     r = c.post(

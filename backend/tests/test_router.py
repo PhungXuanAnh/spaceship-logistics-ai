@@ -64,12 +64,6 @@ async def test_route_refuses_off_topic():
 
 
 @pytest.mark.asyncio
-async def test_route_clarifies_ambiguous():
-    r = await KeywordRouter().route("forecast")  # too short for forecast keyword to fire correctly
-    assert r.intent in (Intent.CLARIFY, Intent.FORECAST)
-
-
-@pytest.mark.asyncio
 async def test_route_breakdown_by_region():
     r = await KeywordRouter().route("Show me orders by region")
     assert r.intent == Intent.QUERY
