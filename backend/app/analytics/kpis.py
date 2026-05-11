@@ -1,6 +1,22 @@
 """KPI computation — pure functions over an OrderRepository.
 
-Delayed rule: status IN ('delayed', 'exception') (Option B per narrative §8).
+Metric definitions
+------------------
+A *completed* order is one whose final status is known: ``delivered``,
+``delayed``, or ``exception``. ``in_transit`` and ``canceled`` are intentionally
+excluded from the rate denominators because they have no completion outcome.
+
+    delay_rate   = (delayed + exception) / (delivered + delayed + exception)
+    on_time_rate =                 delivered / (delivered + delayed + exception)
+
+(Aliased throughout the codebase as ``DELAYED_STATUSES = {"delayed", "exception"}``
+and ``DELIVERED_STATUSES = {"delivered"}``; ``completed = delivered + delayed``
+where ``delayed`` already includes ``exception``.)
+
+This is the "Option B" choice from `tmp/narrative.md` §8 — preferred over the
+narrower "status == 'delayed' only" definition because the spec example
+("delivered late last month") covers both delayed and exception, and over a
+delivery-days-vs-SLA rule because no per-carrier SLA table is provided.
 """
 from __future__ import annotations
 

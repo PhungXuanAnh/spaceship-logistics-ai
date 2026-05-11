@@ -17,6 +17,7 @@ from app.ai.tools import ForecastTool, QueryTool, SchemaInspectorTool
 from app.api.deps import get_db_session, get_effective_client_id, get_repo
 from app.db.models import QueryAudit, User
 from app.api.deps import get_current_user
+from app.prompt_audit import log_prompt
 from app.repositories.sqlalchemy_orders import SqlAlchemyOrderRepository
 
 router = APIRouter(prefix="/api", tags=["ai"])
@@ -205,6 +206,24 @@ async def ask(
     except Exception as e:
         logger.warning("Audit insert failed: %s", e)
         db.rollback()
+
+    log_prompt(
+        request_id=request_id,
+        engine="v1-cascade",
+        user_email=getattr(user, "email", None),
+        client_ip=request.client.host if request.client else None,
+        user_agent=request.headers.get("user-agent"),
+        question=body.question,
+        intent=intent.value,
+        tool=tool_used,
+        provider=provider,
+        duration_ms=duration_ms,
+        row_count=row_count,
+        out_of_scope=out_of_scope,
+        answer=answer,
+        data=data,
+        plan=plan_dict,
+    )
 
     return AskResult(
         intent=intent,

@@ -13,10 +13,10 @@ services:
       - ./backend:/app
       - sqlite_data:/data
       - ./data:/seed:ro
-    # Reach the host's local Copilot proxy (Claude) and Gemini direct: needs host.docker.internal.
+    # Reach the host's local self-hosted LLM server (Claude) and Gemini direct: needs host.docker.internal.
     extra_hosts:
       - "host.docker.internal:host-gateway"
-    # Provider config: defaults to self-hosted Claude via local Copilot proxy on host port 8080,
+    # Provider config: defaults to self-hosted Claude via local self-hosted LLM server on host port 8080,
     # falls back to keyword (KeywordRouter is always-on terminal in the cascade anyway).
     # Override at the shell with `LLM_PROVIDER=... docker compose up -d` to swap.
     environment:
@@ -30,7 +30,7 @@ services:
       LLM_MODEL: ${LLM_MODEL:-claude-sonnet-4.6}
       LLM_API_KEY: ${LLM_API_KEY:-local}
       LLM_BASE_URL: ${LLM_BASE_URL:-http://host.docker.internal:18080}
-      # Cascade per narrative §plan: claude (Copilot proxy) -> gemini -> keyword (terminal).
+      # Cascade per narrative §plan: claude (self-hosted LLM server) -> gemini -> keyword (terminal).
       FALLBACK_PROVIDER: ${FALLBACK_PROVIDER:-gemini}
       FALLBACK_MODEL: ${FALLBACK_MODEL:-gemini-2.5-flash}
       FALLBACK_API_KEY: ${FALLBACK_API_KEY:-}

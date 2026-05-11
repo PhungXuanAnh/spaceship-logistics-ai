@@ -33,6 +33,7 @@ from app.api.deps import (
 )
 from app.api.routes_ask import _pluralize
 from app.db.models import QueryAudit, User
+from app.prompt_audit import log_prompt
 from app.repositories.sqlalchemy_orders import SqlAlchemyOrderRepository
 from app.settings import get_settings
 
@@ -220,6 +221,24 @@ async def ask_v2(
     except Exception as e:
         logger.warning("v2 audit insert failed: %s", e)
         db.rollback()
+
+    log_prompt(
+        request_id=request_id,
+        engine="v2-native",
+        user_email=getattr(user, "email", None),
+        client_ip=request.client.host if request.client else None,
+        user_agent=request.headers.get("user-agent"),
+        question=body.question,
+        intent=intent.value,
+        tool=tool_used,
+        provider=provider,
+        duration_ms=duration_ms,
+        row_count=row_count,
+        out_of_scope=out_of_scope,
+        answer=answer,
+        data=data,
+        plan=plan_dict,
+    )
 
     return AskResult(
         intent=intent,

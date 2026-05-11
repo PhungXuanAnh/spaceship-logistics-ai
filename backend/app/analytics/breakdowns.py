@@ -1,4 +1,24 @@
-"""Breakdowns and time-series — pure functions over an OrderRepository."""
+"""Breakdowns and time-series — pure functions over an OrderRepository.
+
+Metric definitions (see also `kpis.py` and README §Metric definitions):
+
+    delay_rate   = (delayed + exception) / (delivered + delayed + exception)
+    on_time_rate =                 delivered / (delivered + delayed + exception)
+
+Only *completed* orders count toward the rate denominators. ``in_transit`` and
+``canceled`` are excluded because they have no completion outcome — including
+them would systematically deflate every carrier's delay_rate by an amount that
+depends on their pipeline volume rather than their punctuality.
+
+Worked example (full-year demo dataset, carrier = ``GLS``):
+
+    delivered=5, delayed=2, exception=1, in_transit=1, canceled=0
+    completed = 5 + 2 + 1 = 8
+    delay_rate = (2 + 1) / 8 = 0.375  # → 37.5 %
+
+Breakdown rows expose ``completed`` explicitly so the denominator is auditable
+from the JSON response (no need to subtract in your head).
+"""
 from __future__ import annotations
 
 from collections import defaultdict
@@ -75,7 +95,11 @@ def breakdown_by(
 
     result = []
     for k, v in buckets.items():
+        # `delayed` already counts both 'delayed' and 'exception' statuses
+        # (see DELAYED_STATUSES in kpis.py), so completed is the standard
+        # delivered + delayed + exception denominator.
         completed = v["delivered"] + v["delayed"]
+        v["completed"] = completed
         v["delay_rate"] = round(v["delayed"] / completed, 4) if completed else 0.0
         v["value_usd"] = round(v["value_usd"], 2)
         result.append({dimension: k, **v})

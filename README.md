@@ -295,6 +295,37 @@ For explainability, the assignment is explicit that every answer should show the
 - Forecasting works at weekly granularity per category or SKU. Sub-weekly and multivariate models are out of scope.
 - Holt-Winters runs without an explicit seasonal component because the dataset is small enough that fitting one is unstable. Additive trend only.
 
+## 8.1. Metric definitions (delay_rate, on_time_rate)
+
+A *completed* order is one whose final status is known: `delivered`, `delayed`, or `exception`. Two statuses are intentionally excluded from the rate denominators:
+
+- `in_transit` — still on the road; punctuality is undetermined.
+- `canceled` — never had a chance to be on-time or late.
+
+Including them would systematically deflate every carrier's `delay_rate` by an amount that depends on their pipeline volume rather than their punctuality, which is exactly the wrong signal for the "which carrier is worst?" question the spec calls out.
+
+The formulas:
+
+```
+delay_rate   = (delayed + exception) / (delivered + delayed + exception)
+on_time_rate =                 delivered / (delivered + delayed + exception)
+```
+
+Worked example (carrier `GLS` in the demo dataset):
+
+```
+delivered=5, delayed=2, exception=1, in_transit=1, canceled=0
+completed = 5 + 2 + 1 = 8
+delay_rate = (2 + 1) / 8 = 0.375  →  37.5 %
+```
+
+Two implementation details worth knowing:
+
+1. Every breakdown row exposes the `completed` denominator alongside `total`, so the JSON response is self-auditing — no need to re-derive in your head which rows count.
+2. `top_n_by(metric="delay_rate")` applies a `min completed >= 5` minimum-sample-size guard so a carrier with 1 delayed of 2 completed (50 %!) doesn't dominate the worst-carrier list.
+
+These numbers are pinned by `backend/tests/test_metric_definitions.py` against the demo CSV — any drift in the formula, status-set membership, or rounding fails CI immediately.
+
 # 9. Limitations
 
 Things I'd want to be upfront about:

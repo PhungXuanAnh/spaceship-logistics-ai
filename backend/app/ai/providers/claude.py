@@ -1,8 +1,8 @@
-"""Anthropic-compatible provider (works with Anthropic API or local Copilot proxy).
+"""Anthropic-compatible provider (works with Anthropic API or local self-hosted LLM server).
 
 Uses httpx (no anthropic SDK dep) so it can talk to either:
   - https://api.anthropic.com (real Anthropic key)
-  - http://127.0.0.1:8080 (local Copilot proxy that speaks Anthropic Messages API)
+  - http://127.0.0.1:8080 (local self-hosted LLM server that speaks Anthropic Messages API)
 
 Calls are wrapped in asyncio.to_thread NOT needed since we use httpx.AsyncClient.
 """
