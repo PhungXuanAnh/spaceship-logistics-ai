@@ -187,7 +187,7 @@ backend/        FastAPI + SQLAlchemy + analytics + AI (v1 cascade + v2 native)
 frontend/       Next.js 14 (App Router) + Tailwind + Recharts + React Query
 data/           mock_logistics_data.csv
 infra/          Terraform: EC2 + EIP + SG (default VPC)
-deploy/         compose.yml + Caddyfile + deploy.sh
+deploy/         compose.yml + Caddyfile + deploy.sh for aws deployment
 ```
 
 The files most worth opening:
